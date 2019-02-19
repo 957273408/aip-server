@@ -68,7 +68,7 @@ router.put("/:id",
 		var params = req.body;
 		goodServ.updateGood(req.params.id,params,function(err,newGood){
 			if(err) return res.sendResult(null,400,err);
-			res.sendResult(newGood,200,"创建商品成功");
+			res.sendResult(newGood,200,"更新商品成功");
 		})(req,res,next);
 	}
 );

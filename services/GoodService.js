@@ -105,8 +105,12 @@ function generateGoodInfo(params) {
 			info["goods_small_logo"] = "";
 		}
 
+		// 设置商品状态
 		if(params.goods_state) {
 			info["goods_state"] = params.goods_state;
+		} else {
+			// 已审核
+			info["goods_state"] = 2;
 		}
 
 
@@ -120,9 +124,11 @@ function generateGoodInfo(params) {
 			info["attrs"] = params.attrs;
 		} 
 
-
 		info["add_time"] = Date.parse(new Date()) / 1000;
 		info["upd_time"] = Date.parse(new Date()) / 1000;
+		/**
+		info["add_time"] = Date.parse(new Date())
+		info["upd_time"] = Date.parse(new Date())**/
 		info["is_del"] = '0';
 
 		if(params.hot_mumber) {
@@ -133,8 +139,8 @@ function generateGoodInfo(params) {
 			info["hot_mumber"] = 0;
 		}
 		
-		info["is_promote"] = info["is_promote"] ? info["is_promote"] : false;
-		
+		// 设置是否促销
+		info["is_promote"] = params["is_promote"] ? params["is_promote"] : 0;
 		resolve(info);
 	});
 }
@@ -169,7 +175,6 @@ function createGoodInfo(info) {
 				if(err) return reject(err);
 				if(!good) {
 					dao.create("GoodModel",_.clone(info),function(err,newGood) {
-						console.log("---------------------------------")
 						console.log(err)
 						if(err) return reject("创建商品基本信息失败");
 						newGood.goods_cat = newGood.getGoodsCat();
@@ -187,12 +192,13 @@ function createGoodInfo(info) {
 function updateGoodInfo(info) {
 	return new Promise(function(resolve,reject){
 		if(!info.goods_id) return reject("商品ID不存在");
+		console.log("----------update info--------------")
+		console.log(info)
 		dao.update("GoodModel",info.goods_id,_.clone(info),function(err,newGood) {
 			if(err) return reject("更新商品基本信息失败");
 			info.good = newGood;
 			return resolve(info);
 		});
-		
 	});
 }
 
@@ -328,6 +334,8 @@ function doUpdateGoodPics(info) {
 					batchFns.push(clipImage(src,path.join(process.cwd(),pic.pics_sma),200,200));
 					pic.goods_id = good.goods_id;
 					// 2.2 数据库中新建数据记录
+					console.log("**********************************")
+					console.log(pic)
 					batchFns.push(createGoodPic(pic));
 				}
 			});
@@ -346,11 +354,7 @@ function doUpdateGoodPics(info) {
 			.catch(function(error){
 				if(error) return reject(error);
 			});
-		
-			
 		});
-
-		
 	});
 }
 
@@ -384,6 +388,7 @@ function doUpdateGoodAttributes(info) {
 				var createFns = [];
 				_(newAttrs).forEach(function(newattr) {
 					newattr.goods_id = good.goods_id;
+					/**
 					if(newattr.attr_value) {
 						if(newattr.attr_value instanceof Array) {
 							newattr.attr_value = newattr.attr_value.join(",");
@@ -393,6 +398,19 @@ function doUpdateGoodAttributes(info) {
 					}
 					else
 						newattr.attr_value = "";
+					*/
+				if(newattr.attr_vals) {
+						if(newattr.attr_vals instanceof Array) {
+							newattr.attr_vals = newattr.attr_vals.join(",");
+						} else {
+							newattr.attr_vals = newattr.attr_vals;
+						}
+					}
+					else
+						newattr.attr_vals = "";
+
+					// 赋值给attr_value
+					newattr.attr_value = newattr.attr_vals 
 					createFns.push(createGoodAttribute(_.clone(newattr)));
 				});
 			}
@@ -466,7 +484,6 @@ function doGetAllAttrs(info) {
 		var good = info.good;
 		if(!good.goods_id) return reject("获取商品图片必须先获取商品信息");
 		goodAttributeDao.list(good.goods_id,function(err,goodAttrs){
-
 			if(err) return reject("获取所有商品参数列表失败");
 			info.good.attrs = goodAttrs;
 			resolve(info);
@@ -482,8 +499,6 @@ function doGetAllAttrs(info) {
  * @param  {Function} cb     回调函数
  */
 module.exports.createGood = function(params,cb) {
-
-
 	// 验证参数 & 生成数据
 	generateGoodInfo(params)
 	// 检查商品名称
@@ -514,6 +529,7 @@ module.exports.createGood = function(params,cb) {
 module.exports.deleteGood = function(id,cb) {
 	if(!id) return cb("产品ID不能为空");
 	if(isNaN(id)) return cb("产品ID必须为数字");
+	/**
 	dao.update(
 		"GoodModel",
 		id,
@@ -527,6 +543,11 @@ module.exports.deleteGood = function(id,cb) {
 			cb(null);
 		}
 	);
+	**/
+	dao.destroy('GoodModel',id,function(err){
+			if(err) return cb(err);
+			cb(null);
+	})
 }
 
 /**
@@ -571,6 +592,15 @@ module.exports.getAllGoods = function(params,cb) {
 			resultDta["total"] = count;
 			resultDta["pagenum"] = pagenum;
 			resultDta["goods"] = _.map(goods,function(good){
+				if (good.add_time){
+					good.add_time = good.add_time * 1000
+				}
+				if (good.upd_time){
+					good.upd_time = good.upd_time * 1000
+				}
+				if (good.delete_time){
+					good.delete_time = good.delete_time * 1000
+				}
 				return _.omit(good,"goods_introduce","is_del","goods_big_logo","goods_small_logo","delete_time");
 			});
 			cb(err,resultDta);
@@ -586,7 +616,6 @@ module.exports.getAllGoods = function(params,cb) {
  * @param  {Function} cb     回调函数
  */
 module.exports.updateGood = function(id,params,cb) {
-	
 	params.goods_id = id;
 	// 验证参数 & 生成数据
 	generateGoodInfo(params)
